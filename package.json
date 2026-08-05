@@ -1,0 +1,39 @@
+{
+  "name": "career-copilot-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Career Copilot — Part 2: Backend & Infrastructure (Node.js + Express + Neon Postgres + Clerk)",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "migrate": "tsx src/db/migrate.ts",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "@clerk/backend": "^1.15.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "pdf-parse": "^1.1.1",
+    "pg": "^8.11.5",
+    "playwright": "^1.47.0",
+    "svix": "^1.24.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.9",
+    "@types/pdf-parse": "^1.1.4",
+    "@types/pg": "^8.11.6",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

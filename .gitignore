@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# env files
+.env
+.env.local
+.env.*.local
+
+# misc
+*.log
+*.tsbuildinfo
+.DS_Store
+
+# playwright
+/test-results/
+/playwright-report/

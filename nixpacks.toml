@@ -1,0 +1,21 @@
+# Railway builds this with Nixpacks by default. Playwright's Chromium needs
+# a handful of system libraries that aren't in the default Node image, so
+# they're declared here explicitly. `npm install` still runs the
+# `postinstall` script (`playwright install chromium`) to download the
+# browser binary itself.
+[phases.setup]
+nixPkgs = [
+  "nodejs_20",
+  "chromium",
+  "at-spi2-atk",
+  "cups",
+  "libdrm",
+  "libxkbcommon",
+  "mesa",
+  "nss",
+  "pango",
+  "alsa-lib"
+]
+
+[start]
+cmd = "npm run start"
