@@ -13,19 +13,18 @@ clerkWebhookRouter.post(
   "/clerk",
   raw({ type: "application/json" }),
   asyncHandler(async (req, res) => {
-    const wh = new Webhook(env.CLERK_WEBHOOK_SECRET);
-    const headers = {
-      "svix-id": req.headers["svix-id"] as string,
-      "svix-timestamp": req.headers["svix-timestamp"] as string,
-      "svix-signature": req.headers["svix-signature"] as string,
-    };
-
     let event: any;
     try {
+      const wh = new Webhook(env.CLERK_WEBHOOK_SECRET);
+      const headers = {
+        "svix-id": req.headers["svix-id"] as string,
+        "svix-timestamp": req.headers["svix-timestamp"] as string,
+        "svix-signature": req.headers["svix-signature"] as string,
+      };
       event = wh.verify(req.body, headers);
-    } catch (err) {
-      console.error("[webhooks/clerk] signature verification failed:", err);
-      return res.status(400).json({ error: "Invalid webhook signature" });
+    } catch (err: any) {
+      console.error("[webhooks/clerk] signature verification or secret initialization failed:", err?.message || err);
+      return res.status(400).json({ error: "Invalid webhook signature or misconfigured CLERK_WEBHOOK_SECRET", details: err?.message });
     }
 
     if (event.type === "user.created") {

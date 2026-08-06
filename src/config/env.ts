@@ -1,7 +1,8 @@
 import "dotenv/config";
 
 function required(name: string, fallback?: string): string {
-  const value = process.env[name] ?? fallback;
+  const raw = process.env[name] ?? fallback;
+  const value = raw ? raw.trim().replace(/^["']|["']$/g, "") : "";
   if (!value) {
     throw new Error(`[env] Missing required env var: ${name}`);
   }
