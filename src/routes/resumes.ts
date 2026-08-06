@@ -115,8 +115,11 @@ resumesRouter.put(
          RETURNING *`,
         [body.name, body.content, body.is_default, req.params.id, userId]
       );
+      if (rows.length === 0) {
+        await client.query("ROLLBACK");
+        throw new ApiError(404, "Resume not found");
+      }
       await client.query("COMMIT");
-      if (rows.length === 0) throw new ApiError(404, "Resume not found");
       res.json({ resume: rows[0] });
     } catch (err) {
       await client.query("ROLLBACK");
@@ -173,8 +176,11 @@ resumesRouter.delete(
           [userId]
         );
       }
+      if (!rowCount) {
+        await client.query("ROLLBACK");
+        throw new ApiError(404, "Resume not found");
+      }
       await client.query("COMMIT");
-      if (!rowCount) throw new ApiError(404, "Resume not found");
       res.json({ success: true });
     } catch (err) {
       await client.query("ROLLBACK");

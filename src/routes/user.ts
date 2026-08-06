@@ -4,7 +4,7 @@ import { ccDb } from "../config/db";
 import { requireAuth, AuthedRequest } from "../middleware/auth";
 import { asyncHandler } from "../middleware/errorHandler";
 import { cache, withCache, TTL } from "../services/cacheStore";
-import { FREE_LIMITS, PRO_LIMITS } from "../middleware/planGate";
+import { FREE_LIMITS, PRO_LIMITS, formatLimits } from "../middleware/planGate";
 
 export const userRouter = Router();
 userRouter.use(requireAuth);
@@ -83,7 +83,7 @@ userRouter.get(
         cover_letter_count: user.cover_letter_count,
         resume_count: user.resume_count,
       },
-      limits,
+      limits: formatLimits(limits),
       profile_complete: user.profile_complete,
     });
   })

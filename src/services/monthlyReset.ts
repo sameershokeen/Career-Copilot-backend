@@ -17,11 +17,11 @@ export async function resetMonthlyCounts() {
   return rowCount;
 }
 
-/** Lightweight in-process scheduler: checks once/day, runs the reset only on the 1st. */
+/** Lightweight in-process scheduler: checks hourly, runs the reset only on the 1st UTC. */
 export function startMonthlyResetScheduler() {
   let lastRunDate: string | null = null;
 
-  setInterval(async () => {
+  const checkAndReset = async () => {
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
     if (now.getUTCDate() === 1 && lastRunDate !== today) {
@@ -32,7 +32,13 @@ export function startMonthlyResetScheduler() {
         console.error("[monthlyReset] failed:", err);
       }
     }
-  }, 24 * 60 * 60 * 1000); // check once/day
+  };
 
-  console.log("[monthlyReset] scheduler started (in-process, checks daily)");
+  // Run immediate check at startup (handles redeploys on the 1st)
+  checkAndReset();
+
+  // Check hourly to avoid 24h drift on process restarts
+  setInterval(checkAndReset, 60 * 60 * 1000).unref();
+
+  console.log("[monthlyReset] scheduler started (in-process, checks hourly)");
 }

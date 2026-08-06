@@ -1,10 +1,10 @@
-import { Router } from "express";
+import { Router, Response, NextFunction, Request } from "express";
 import { z } from "zod";
-import { Response, NextFunction, Request } from "express";
 import { env } from "../config/env";
 import { ccDb } from "../config/db";
 import { cache } from "../services/cacheStore";
 import { asyncHandler } from "../middleware/errorHandler";
+import { resetMonthlyCounts } from "../services/monthlyReset";
 
 export const adminRouter = Router();
 
@@ -56,5 +56,14 @@ adminRouter.post(
     );
     cache.delete("resources:all");
     res.status(201).json({ resource: rows[0] });
+  })
+);
+
+// POST /api/admin/reset-monthly — manual trigger for monthly quota reset
+adminRouter.post(
+  "/reset-monthly",
+  asyncHandler(async (req, res) => {
+    const resetCount = await resetMonthlyCounts();
+    res.json({ success: true, reset_users: resetCount });
   })
 );

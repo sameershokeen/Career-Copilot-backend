@@ -30,6 +30,14 @@ const COUNT_COLUMN: Record<GatedFeature, "apply_count" | "cover_letter_count" | 
  * Does NOT increment the count itself — callers increment atomically after
  * the gated action actually succeeds (see routes for UPDATE ... SET x = x+1).
  */
+export function formatLimits(limits: Record<GatedFeature, number>): Record<GatedFeature, number | null> {
+  return {
+    auto_apply: limits.auto_apply === Infinity ? null : limits.auto_apply,
+    cover_letter: limits.cover_letter === Infinity ? null : limits.cover_letter,
+    resume_create: limits.resume_create === Infinity ? null : limits.resume_create,
+  };
+}
+
 export function planGate(feature: GatedFeature) {
   return (req: AuthedRequest, res: Response, next: NextFunction) => {
     const user = req.ccUser;
@@ -44,7 +52,7 @@ export function planGate(feature: GatedFeature) {
         error: "Plan limit reached",
         feature,
         plan: user.plan,
-        limit,
+        limit: limit === Infinity ? null : limit,
         current,
         upgrade: {
           message: `You've hit the ${user.plan} plan limit for ${feature.replace("_", " ")}.`,

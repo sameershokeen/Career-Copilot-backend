@@ -1,4 +1,7 @@
 import { chromium, type Browser, type Page } from "playwright";
+import fs from "fs";
+import path from "path";
+import os from "os";
 import { chatCompletion } from "../openrouter/client";
 import {
   AUTOFILL_FREE_TEXT_SYSTEM_PROMPT,
@@ -96,12 +99,29 @@ async function fillForm(
     const locator = page.locator(target.selectors.join(", ")).first();
     if ((await locator.count()) > 0) {
       try {
-        // Caller supplies a fetchable URL; Playwright needs a local path,
-        // so the backend should pass a pre-downloaded temp path here in
-        // production. Left as a no-op placeholder marker in this template.
-        filled["resume_upload"] = "attempted";
-      } catch {
-        /* non-fatal */
+        let filePath = target.url;
+        let isTempFile = false;
+        if (target.url.startsWith("http://") || target.url.startsWith("https://")) {
+          const res = await fetch(target.url);
+          if (res.ok) {
+            const buffer = Buffer.from(await res.arrayBuffer());
+            filePath = path.join(os.tmpdir(), `resume-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
+            await fs.promises.writeFile(filePath, buffer);
+            isTempFile = true;
+          }
+        }
+        if (fs.existsSync(filePath)) {
+          await locator.setInputFiles(filePath);
+          filled["resume_upload"] = "uploaded";
+          if (isTempFile) {
+            await fs.promises.unlink(filePath).catch(() => undefined);
+          }
+        } else {
+          filled["resume_upload"] = "file_not_found";
+        }
+      } catch (err) {
+        logger.warn(SCOPE, `Failed to attach resume file: ${err}`);
+        filled["resume_upload"] = "failed";
       }
     }
   }

@@ -62,27 +62,29 @@ communityRouter.post(
   })
 );
 
-// POST /api/community/posts/:id/like — toggle like
+// POST /api/community/posts/:id/like — toggle like atomically
 communityRouter.post(
   "/posts/:id/like",
   asyncHandler(async (req: AuthedRequest, res) => {
     const postId = req.params.id;
     const userId = req.ccUser!.id;
 
-    const existing = await ccDb.query(`SELECT 1 FROM cc_post_likes WHERE post_id = $1 AND user_id = $2`, [postId, userId]);
-
     const client = await ccDb.connect();
     try {
       await client.query("BEGIN");
+      const inserted = await client.query(
+        `INSERT INTO cc_post_likes (post_id, user_id) VALUES ($1,$2)
+         ON CONFLICT (post_id, user_id) DO NOTHING RETURNING id`,
+        [postId, userId]
+      );
       let liked: boolean;
-      if (existing.rows.length > 0) {
+      if (inserted.rows.length > 0) {
+        await client.query(`UPDATE cc_community_posts SET likes_count = likes_count + 1 WHERE id = $1`, [postId]);
+        liked = true;
+      } else {
         await client.query(`DELETE FROM cc_post_likes WHERE post_id = $1 AND user_id = $2`, [postId, userId]);
         await client.query(`UPDATE cc_community_posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = $1`, [postId]);
         liked = false;
-      } else {
-        await client.query(`INSERT INTO cc_post_likes (post_id, user_id) VALUES ($1,$2)`, [postId, userId]);
-        await client.query(`UPDATE cc_community_posts SET likes_count = likes_count + 1 WHERE id = $1`, [postId]);
-        liked = true;
       }
       await client.query("COMMIT");
       cache.deleteByPrefix("community:feed:page:");

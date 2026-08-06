@@ -67,44 +67,56 @@ applyRouter.post(
     const jobsMap = await getJobsByIds(queueRows.map((r) => r.job_id));
 
     const { rows: parsedRows } = await ccDb.query(
-      `SELECT parsed_data FROM cc_parsed_resumes WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      `SELECT resume_id, parsed_data FROM cc_parsed_resumes WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
       [userId]
     );
     if (parsedRows.length === 0) {
       throw new ApiError(400, "No parsed resume on file", { hint: "Upload and parse a resume before auto-applying." });
     }
     const resume = parsedRows[0].parsed_data;
+    const activeResumeId = parsedRows[0].resume_id ?? null;
 
     // Everything beyond the remaining monthly quota is left untouched in the queue.
     const toProcess = queueRows.slice(0, remaining);
     const skipped = queueRows.slice(remaining);
 
+    // Fetch latest cover letter per job before creating application records
+    const coverLetterRows = await ccDb.query(
+      `SELECT DISTINCT ON (job_id) id, job_id, content FROM cc_cover_letters
+       WHERE user_id = $1 AND job_id = ANY($2::bigint[]) ORDER BY job_id, created_at DESC`,
+      [userId, toProcess.map((c) => c.job_id)]
+    );
+    const coverLetterByJob = new Map<number, { id: string; content: string }>(
+      coverLetterRows.rows.map((r) => [r.job_id, { id: r.id, content: r.content }])
+    );
+
     const created: { id: string; job_id: number }[] = [];
     for (const q of toProcess) {
       const job = jobsMap.get(q.job_id);
+      const cl = coverLetterByJob.get(q.job_id);
       const { rows } = await ccDb.query(
-        `INSERT INTO cc_applications (user_id, job_id, status, job_title_snapshot, job_company_snapshot, job_url_snapshot)
-         VALUES ($1,$2,'queued',$3,$4,$5) RETURNING id, job_id`,
-        [userId, q.job_id, job?.title ?? null, job?.company ?? null, job?.job_url ?? job?.apply_url ?? null]
+        `INSERT INTO cc_applications (user_id, job_id, resume_id, cover_letter_id, status, job_title_snapshot, job_company_snapshot, job_url_snapshot)
+         VALUES ($1,$2,$3,$4,'queued',$5,$6,$7) RETURNING id, job_id`,
+        [
+          userId,
+          q.job_id,
+          activeResumeId,
+          cl?.id ?? null,
+          job?.title ?? null,
+          job?.company ?? null,
+          job?.job_url ?? job?.apply_url ?? null,
+        ]
       );
       created.push(rows[0]);
       await logEvent(rows[0].id, "Application queued");
       await ccDb.query(`UPDATE cc_apply_queue SET status = 'approved' WHERE id = $1`, [q.id]);
     }
 
-    // Fetch latest cover letter per job (best-effort — a missing cover letter
-    // doesn't block auto-apply, the engine just skips that field).
-    const coverLetterRows = await ccDb.query(
-      `SELECT DISTINCT ON (job_id) job_id, content FROM cc_cover_letters
-       WHERE user_id = $1 AND job_id = ANY($2::bigint[]) ORDER BY job_id, created_at DESC`,
-      [userId, created.map((c) => c.job_id)]
-    );
-    const coverLetterByJob = new Map<number, string>(coverLetterRows.rows.map((r) => [r.job_id, r.content]));
-
     const jobInputs: AutoFillJobInput[] = created
       .map((app): AutoFillJobInput | null => {
         const job = jobsMap.get(app.job_id) as ScraperJob | undefined;
         if (!job || !(job.job_url || job.apply_url)) return null;
+        const pdfUrl = (resume as any)?.pdf_url ?? (resume as any)?.resume_pdf_url ?? null;
         return {
           applicationId: app.id,
           job: {
@@ -117,8 +129,8 @@ applyRouter.post(
             raw: job.raw ?? null,
           },
           resume,
-          resumePdfUrl: null,
-          coverLetterText: coverLetterByJob.get(app.job_id) ?? null,
+          resumePdfUrl: pdfUrl,
+          coverLetterText: coverLetterByJob.get(app.job_id)?.content ?? null,
         };
       })
       .filter((j): j is AutoFillJobInput => j !== null);

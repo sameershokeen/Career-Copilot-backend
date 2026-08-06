@@ -2,11 +2,8 @@ import "dotenv/config";
 
 function required(name: string, fallback?: string): string {
   const value = process.env[name] ?? fallback;
-  if (value === undefined) {
-    // Don't throw at import time in dev — just warn — so the server can still
-    // boot and hit the missing-config error only on the routes that need it.
-    console.warn(`[env] Missing required env var: ${name}`);
-    return "";
+  if (!value) {
+    throw new Error(`[env] Missing required env var: ${name}`);
   }
   return value;
 }

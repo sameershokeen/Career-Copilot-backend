@@ -11,6 +11,18 @@ interface Hit {
 // single-process backend.
 const buckets = new Map<string, Hit>();
 
+// Periodic cleanup to prune stale keys and prevent memory growth in long-running processes
+const SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, bucket] of buckets.entries()) {
+    bucket.timestamps = bucket.timestamps.filter((t) => now - t < 60 * 60 * 1000);
+    if (bucket.timestamps.length === 0) {
+      buckets.delete(key);
+    }
+  }
+}, SWEEP_INTERVAL_MS).unref();
+
 export interface RateLimitOptions {
   limit: number;
   windowMs: number;
