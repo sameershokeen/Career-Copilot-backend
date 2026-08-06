@@ -29,7 +29,7 @@ resourcesRouter.get(
     const filtered = all.filter(
       (r: any) => (!q.domain || r.domain === q.domain) && (!q.category || r.category === q.category)
     );
-    res.json({ resources: filtered });
+    res.json(filtered);
   })
 );
 

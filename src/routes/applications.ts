@@ -187,8 +187,8 @@ applicationsRouter.get(
       [req.ccUser!.id]
     );
     const jobsMap = await getJobsByIds(rows.map((r) => r.job_id));
-    res.json({
-      applications: rows.map((r) => ({
+    res.json(
+      rows.map((r) => ({
         ...r,
         // Prefer live job data; fall back to the snapshot taken at apply time.
         job: jobsMap.get(r.job_id) ?? {
@@ -197,8 +197,8 @@ applicationsRouter.get(
           company: r.job_company_snapshot,
           job_url: r.job_url_snapshot,
         },
-      })),
-    });
+      }))
+    );
   })
 );
 
@@ -216,7 +216,7 @@ applicationsRouter.get(
       `SELECT * FROM cc_application_logs WHERE application_id = $1 ORDER BY created_at ASC`,
       [req.params.id]
     );
-    res.json({ logs: rows });
+    res.json(rows);
   })
 );
 

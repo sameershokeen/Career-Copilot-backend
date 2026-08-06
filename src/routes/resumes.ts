@@ -30,7 +30,7 @@ resumesRouter.get(
       `SELECT * FROM cc_resumes WHERE user_id = $1 ORDER BY created_at DESC`,
       [req.ccUser!.id]
     );
-    res.json({ resumes: rows });
+    res.json(rows);
   })
 );
 
