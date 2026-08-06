@@ -35,10 +35,13 @@ clerkWebhookRouter.post(
       await ccDb.query(
         `INSERT INTO cc_users (clerk_id, email, name)
          VALUES ($1, $2, $3)
-         ON CONFLICT (clerk_id) DO NOTHING`,
+         ON CONFLICT (clerk_id) DO UPDATE SET
+           email = EXCLUDED.email,
+           name = COALESCE(EXCLUDED.name, cc_users.name),
+           updated_at = now()`,
         [id, email, name]
       );
-      console.log(`[webhooks/clerk] provisioned cc_users row for ${id}`);
+      console.log(`[webhooks/clerk] provisioned/updated cc_users row for ${id}`);
     }
 
     // Other event types (user.updated, user.deleted, ...) can be handled

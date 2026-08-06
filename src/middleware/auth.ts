@@ -46,14 +46,25 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
       [clerkId]
     );
 
-    if (rows.length === 0) {
-      return res.status(401).json({
-        error: "User not provisioned yet",
-        detail: "cc_users row not found — Clerk webhook may not have fired yet. Retry shortly.",
-      });
+    let userRow = rows[0];
+
+    if (!userRow) {
+      // Auto-provision fallback: if Clerk verified the JWT but webhook hasn't arrived
+      // or was misconfigured, provision the user row seamlessly on-the-fly.
+      const email = (payload.email as string) || (payload.primary_email as string) || `${clerkId}@clerk.user`;
+      const name = (payload.name as string) || null;
+      const created = await ccDb.query(
+        `INSERT INTO cc_users (clerk_id, email, name)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (clerk_id) DO UPDATE SET updated_at = now()
+         RETURNING id, clerk_id, email, name, plan, apply_count, cover_letter_count, resume_count, profile_complete`,
+        [clerkId, email, name]
+      );
+      userRow = created.rows[0];
+      console.log(`[auth] auto-provisioned missing cc_users row for ${clerkId}`);
     }
 
-    req.ccUser = rows[0];
+    req.ccUser = userRow;
     next();
   } catch (err) {
     console.error("[auth] token verification failed:", err);
